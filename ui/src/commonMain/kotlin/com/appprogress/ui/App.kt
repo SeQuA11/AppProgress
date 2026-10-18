@@ -31,7 +31,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.CompositionLocalProvider
 import com.appprogress.ui.common.ComingSoonScreen
+import com.appprogress.ui.common.LocalNavigator
+import com.appprogress.ui.common.Navigator
 import com.appprogress.ui.settings.SettingsScreen
 import com.appprogress.ui.theme.AppTheme
 import com.appprogress.ui.theme.ThemeMode
@@ -57,18 +60,22 @@ fun App(
             ?.let { theme = it }
     }
 
+    val navigator = remember { Navigator { section = it } }
+
     AppTheme(theme) {
-        // Surface задаёт цвет текста по умолчанию (onBackground) — без него текст в тёмной теме был бы чёрным.
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Row(Modifier.fillMaxSize()) {
-                Sidebar(section, version = container.version, onSelect = { section = it })
-                VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Box(Modifier.fillMaxSize()) {
-                    val content = section.content
-                    when {
-                        section == Section.Settings -> SettingsScreen(theme, setTheme, container)
-                        content != null -> content(container)
-                        else -> ComingSoonScreen(section)
+        CompositionLocalProvider(LocalNavigator provides navigator) {
+            // Surface задаёт цвет текста по умолчанию (onBackground) — без него текст в тёмной теме был бы чёрным.
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Row(Modifier.fillMaxSize()) {
+                    Sidebar(section, version = container.version, onSelect = { section = it })
+                    VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Box(Modifier.fillMaxSize()) {
+                        val content = section.content
+                        when {
+                            section == Section.Settings -> SettingsScreen(theme, setTheme, container)
+                            content != null -> content(container)
+                            else -> ComingSoonScreen(section)
+                        }
                     }
                 }
             }

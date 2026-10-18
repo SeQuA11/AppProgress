@@ -29,6 +29,9 @@ import com.appprogress.kanban.Card
 import com.appprogress.kanban.CardEdit
 import com.appprogress.kanban.Priority
 import com.appprogress.kanban.parseLabels
+import com.appprogress.ui.common.APP_URI
+import com.appprogress.ui.common.LocalNavigator
+import com.appprogress.ui.common.NavTarget
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.plus
 
@@ -66,6 +69,21 @@ fun CardDialog(
                     description, { description = it },
                     label = { Text("Описание") }, minLines = 3, modifier = Modifier.fillMaxWidth(),
                 )
+                // Карточка из заметки или письма помнит, откуда она: app://note/ID, app://mail/ID в описании.
+                val navigator = LocalNavigator.current
+                val sources = APP_URI.findAll(description).map { it.groupValues[1] to it.groupValues[2] }.distinct().toList()
+                if (sources.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        sources.forEach { (kind, id) ->
+                            val (label, target) = when (kind) {
+                                "note" -> "Открыть заметку" to NavTarget.Note(id)
+                                "mail" -> "Открыть письмо" to NavTarget.Mail(id)
+                                else -> return@forEach
+                            }
+                            AssistChip(onClick = { onDismiss(); navigator.open(target) }, label = { Text(label) })
+                        }
+                    }
+                }
 
                 Label("Приоритет")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

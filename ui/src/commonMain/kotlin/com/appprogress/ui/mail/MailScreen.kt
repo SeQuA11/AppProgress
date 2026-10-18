@@ -61,6 +61,8 @@ import com.appprogress.mail.MailRule
 import com.appprogress.mail.RuleField
 import com.appprogress.ui.AppContainer
 import com.appprogress.ui.common.ConfirmDialog
+import com.appprogress.ui.common.LocalNavigator
+import com.appprogress.ui.common.NavTarget
 import com.appprogress.ui.common.formatDateTime
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -97,6 +99,10 @@ fun MailScreen(
     var addingAccount by remember { mutableStateOf(false) }
     var showRules by remember { mutableStateOf(false) }
     var removing by remember { mutableStateOf<MailAccount?>(null) }
+    val navigator = LocalNavigator.current
+    LaunchedEffect(navigator.pending) {
+        navigator.consume<NavTarget.Mail>()?.let { priorityFilter = null; accountFilter = null; query = ""; selectedId = it.id }
+    }
 
     val sync: () -> Unit = {
         if (!syncing) scope.launch { syncing = true; try { repo.syncAll() } finally { syncing = false } }

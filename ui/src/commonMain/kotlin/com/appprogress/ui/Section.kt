@@ -24,7 +24,7 @@ enum class Section(
     val planned: List<String> = emptyList(),
     val content: (@Composable (AppContainer) -> Unit)? = null,
 ) {
-    Notes("Заметки", Icons.Filled.Edit, content = { NotesScreen(it.notes, it.scope) }),
+    Notes("Заметки", Icons.Filled.Edit, content = { NotesScreen(it) }),
 
     Kanban("Канбан", Icons.AutoMirrored.Filled.List, content = { com.appprogress.ui.kanban.KanbanScreen(it) }),
 

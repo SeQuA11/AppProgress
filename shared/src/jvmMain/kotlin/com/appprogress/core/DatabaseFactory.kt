@@ -29,7 +29,28 @@ object DatabaseFactory {
      * а не по номеру версии: модули разрабатываются в разных ветках, и номера бы конфликтовали.
      */
     private val migrations: List<Pair<String, String>> = listOf(
-        // "2026-11-01-note-color" to "ALTER TABLE note ADD COLUMN color TEXT",
+        // Заметки, созданные до появления полнотекстового поиска, попадают в индекс один раз.
+        "2026-10-note-fts-fill" to
+            "INSERT INTO note_fts(note_id, title, content) SELECT id, replace(replace(title, 'ё', 'е'), 'Ё', 'Е'), " +
+            "replace(replace(content, 'ё', 'е'), 'Ё', 'Е') FROM note WHERE id NOT IN (SELECT note_id FROM note_fts)",
+    )
+
+    /**
+     * Колонки, добавленные в существующие таблицы: (таблица, колонка, тип). В новой базе они уже есть
+     * в CREATE TABLE, в старой — добавляются здесь. Проверяем по PRAGMA table_info, поэтому порядок и ветки не важны.
+     */
+    private val addedColumns: List<Triple<String, String, String>> = listOf(
+        Triple("note", "folder_id", "TEXT"),
+        Triple("note", "note_date", "TEXT"),
+        Triple("note", "is_daily", "INTEGER NOT NULL DEFAULT 0"),
+        Triple("note", "encrypted", "INTEGER NOT NULL DEFAULT 0"),
+        Triple("note", "tags", "TEXT NOT NULL DEFAULT ''"),
+    )
+
+    /** Индексы по добавленным колонкам: создаём после того, как колонки точно есть. */
+    private val lateIndexes = listOf(
+        "CREATE INDEX IF NOT EXISTS note_folder_id ON note(folder_id)",
+        "CREATE INDEX IF NOT EXISTS note_date_idx ON note(note_date)",
     )
 
     private fun createDriver(url: String): SqlDriver {
@@ -38,8 +59,23 @@ object DatabaseFactory {
         // Все CREATE в .sq-файлах написаны с IF NOT EXISTS, поэтому схему можно применять при каждом запуске:
         // новые таблицы модулей появятся в уже существующей базе, старые не тронутся.
         AppDatabase.Schema.create(driver)
+        addMissingColumns(driver)
         applyMigrations(driver)
+        lateIndexes.forEach { driver.execute(null, it, 0) }
         return driver
+    }
+
+    private fun addMissingColumns(driver: SqlDriver) {
+        addedColumns.groupBy { it.first }.forEach { (table, columns) ->
+            val existing = driver.executeQuery(null, "PRAGMA table_info($table)", { cursor ->
+                val names = mutableSetOf<String>()
+                while (cursor.next().value) cursor.getString(1)?.let(names::add)
+                QueryResult.Value(names)
+            }, 0).value
+            columns.filter { it.second !in existing }.forEach { (_, column, type) ->
+                driver.execute(null, "ALTER TABLE $table ADD COLUMN $column $type", 0)
+            }
+        }
     }
 
     private fun applyMigrations(driver: SqlDriver) {

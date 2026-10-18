@@ -58,6 +58,9 @@ import com.appprogress.calendar.firstOfMonth
 import com.appprogress.calendar.startOfWeek
 import com.appprogress.core.Dates
 import com.appprogress.ui.AppContainer
+import com.appprogress.ui.common.LocalNavigator
+import com.appprogress.ui.common.NavTarget
+import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
@@ -78,6 +81,15 @@ fun CalendarScreen(container: AppContainer) {
     var month by remember { mutableStateOf(today.firstOfMonth()) }
     var selected by remember { mutableStateOf(today) }
     var editing by remember { mutableStateOf<CalendarEvent?>(null) }
+    val navigator = LocalNavigator.current
+    LaunchedEffect(navigator.pending) {
+        navigator.consume<NavTarget.Day>()?.let { selected = it.date; month = it.date.firstOfMonth() }
+    }
+    // Не только события: заметки, привязанные к дате, тоже видны в календаре.
+    val notes by remember { container.notes.observeSummaries() }.collectAsState(initial = emptyList())
+    val extras: Map<LocalDate, List<CalendarExtra>> = notes.filter { it.date != null }.groupBy({ it.date!! }) { n ->
+        CalendarExtra(n.displayTitle, NOTE_COLOR, "заметка") { navigator.open(NavTarget.Note(n.id)) }
+    }
 
     Row(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).fillMaxHeight().padding(start = 24.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)) {
@@ -94,6 +106,7 @@ fun CalendarScreen(container: AppContainer) {
                 today = today,
                 selected = selected,
                 events = events,
+                extras = extras,
                 onSelect = { selected = it },
                 onOpen = { editing = it.event },
             )
@@ -103,6 +116,7 @@ fun CalendarScreen(container: AppContainer) {
             day = selected,
             today = today,
             events = events,
+            extras = extras[selected].orEmpty(),
             onAdd = { editing = CalendarEvent(title = "", date = selected) },
             onOpen = { editing = it },
         )
@@ -147,6 +161,7 @@ private fun MonthGrid(
     today: LocalDate,
     selected: LocalDate,
     events: List<CalendarEvent>,
+    extras: Map<LocalDate, List<CalendarExtra>>,
     onSelect: (LocalDate) -> Unit,
     onOpen: (Occurrence) -> Unit,
 ) {
@@ -179,6 +194,7 @@ private fun MonthGrid(
                             isToday = day == today,
                             isSelected = day == selected,
                             occurrences = byDay[day].orEmpty(),
+                            extras = extras[day].orEmpty(),
                             onClick = { onSelect(day) },
                             onOpen = onOpen,
                             modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -199,6 +215,7 @@ private fun DayCell(
     isToday: Boolean,
     isSelected: Boolean,
     occurrences: List<Occurrence>,
+    extras: List<CalendarExtra>,
     onClick: () -> Unit,
     onOpen: (Occurrence) -> Unit,
     modifier: Modifier,
@@ -227,8 +244,48 @@ private fun DayCell(
         }
         val shown = occurrences.take(3)
         shown.forEach { occ -> EventChip(occ, onClick = { onOpen(occ) }) }
-        if (occurrences.size > shown.size) {
-            Text("ещё ${occurrences.size - shown.size}", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+        val shownExtras = extras.take((3 - shown.size).coerceAtLeast(0))
+        shownExtras.forEach { ExtraChip(it) }
+        val hidden = occurrences.size + extras.size - shown.size - shownExtras.size
+        if (hidden > 0) {
+            Text("ещё $hidden", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+        }
+    }
+}
+
+/** Дополнительные записи дня, не являющиеся событиями: заметки на дату и т.п. */
+data class CalendarExtra(val title: String, val color: Color, val label: String, val onClick: () -> Unit)
+
+private val NOTE_COLOR = Color(0xFF0E9F8E)
+
+@Composable
+private fun ExtraChip(extra: CalendarExtra) {
+    Text(
+        extra.title,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurface,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(4.dp))
+            .border(1.dp, extra.color.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+            .clickable(onClick = extra.onClick)
+            .padding(horizontal = 4.dp, vertical = 1.dp),
+    )
+}
+
+@Composable
+private fun ExtraRow(extra: CalendarExtra) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = colors.surface,
+        border = BorderStroke(1.dp, extra.color.copy(alpha = 0.5f)),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = extra.onClick),
+    ) {
+        Column(Modifier.padding(10.dp)) {
+            Text(extra.title, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(extra.label, style = MaterialTheme.typography.bodySmall, color = extra.color)
         }
     }
 }
@@ -259,6 +316,7 @@ private fun DayPanel(
     day: LocalDate,
     today: LocalDate,
     events: List<CalendarEvent>,
+    extras: List<CalendarExtra>,
     onAdd: () -> Unit,
     onOpen: (CalendarEvent) -> Unit,
 ) {
@@ -277,10 +335,11 @@ private fun DayPanel(
             fontWeight = FontWeight.SemiBold,
         )
         Text(RuText.dayMonthWeekday(day), color = colors.onSurfaceVariant)
-        if (dayItems.isEmpty()) {
+        if (dayItems.isEmpty() && extras.isEmpty()) {
             Text("Ничего не запланировано", color = colors.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
         }
         dayItems.forEach { occ -> OccurrenceRow(occ, showDate = false, onClick = { onOpen(occ.event) }) }
+        extras.forEach { ExtraRow(it) }
         OutlinedButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Filled.Add, null, Modifier.size(18.dp))
             Text("Добавить на этот день", Modifier.padding(start = 6.dp))

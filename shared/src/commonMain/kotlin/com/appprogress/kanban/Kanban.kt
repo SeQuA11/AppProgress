@@ -56,3 +56,9 @@ object Positions {
 
 fun parseLabels(text: String): List<String> =
     text.split(',').map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+
+/** Колонка считается «завершённой», если называется «Готово», «Сделано» или «Done». */
+fun BoardColumn.isDone(): Boolean = title.lowercase().let { "готов" in it || "сделан" in it || "done" in it }
+
+/** Карточка вместе с доской и колонкой, где она лежит. */
+data class CardRef(val board: Board, val column: BoardColumn, val card: Card)

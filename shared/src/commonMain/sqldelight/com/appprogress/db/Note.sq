@@ -1,6 +1,7 @@
 -- Заметки. Поля updated_at / deleted_at нужны будущей синхронизации между устройствами:
 -- удаление «мягкое» (ставим deleted_at), чтобы другое устройство узнало, что заметку удалили.
 -- IF NOT EXISTS: схема применяется при каждом запуске, см. DatabaseFactory.
+-- Колонки после deleted_at появились позже: в старых базах их добавляет DatabaseFactory.addedColumns.
 CREATE TABLE IF NOT EXISTS note (
     id TEXT NOT NULL PRIMARY KEY,
     title TEXT NOT NULL DEFAULT '',
@@ -8,28 +9,164 @@ CREATE TABLE IF NOT EXISTS note (
     pinned INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
-    deleted_at INTEGER
+    deleted_at INTEGER,
+    folder_id TEXT,
+    note_date TEXT,                         -- ГГГГ-ММ-ДД: заметка привязана к дню календаря
+    is_daily INTEGER NOT NULL DEFAULT 0,    -- ежедневная заметка
+    encrypted INTEGER NOT NULL DEFAULT 0,   -- content зашифрован паролем пользователя
+    tags TEXT NOT NULL DEFAULT ''           -- теги из текста через запятую, чтобы список не читал весь текст
 );
 
 CREATE INDEX IF NOT EXISTS note_updated_at ON note(updated_at);
+
+-- Папки (дерево через parent_id).
+CREATE TABLE IF NOT EXISTS note_folder (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    parent_id TEXT,
+    created_at INTEGER NOT NULL
+);
+
+-- История версий: снимок текста перед изменением, не чаще раза в 10 минут.
+CREATE TABLE IF NOT EXISTS note_version (
+    id TEXT NOT NULL PRIMARY KEY,
+    note_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS note_version_note ON note_version(note_id, created_at);
+
+-- Полнотекстовый индекс. unicode61 понимает регистр кириллицы. «ё» он не приравнивает к «е», поэтому
+-- в индекс кладём текст с заменой ё→е (и то же делаем с запросом в NotesRepository.search).
+-- Индекс обновляют триггеры — коду приложения о нём думать не нужно.
+CREATE VIRTUAL TABLE IF NOT EXISTS note_fts USING fts5(note_id UNINDEXED, title, content, tokenize = 'unicode61');
+
+CREATE TRIGGER IF NOT EXISTS note_fts_insert AFTER INSERT ON note BEGIN
+    INSERT INTO note_fts(note_id, title, content)
+    VALUES (new.id, replace(replace(new.title, 'ё', 'е'), 'Ё', 'Е'), replace(replace(new.content, 'ё', 'е'), 'Ё', 'Е'));
+END;
+
+CREATE TRIGGER IF NOT EXISTS note_fts_update AFTER UPDATE OF title, content ON note BEGIN
+    DELETE FROM note_fts WHERE note_id = old.id;
+    INSERT INTO note_fts(note_id, title, content)
+    VALUES (new.id, replace(replace(new.title, 'ё', 'е'), 'Ё', 'Е'), replace(replace(new.content, 'ё', 'е'), 'Ё', 'Е'));
+END;
+
+CREATE TRIGGER IF NOT EXISTS note_fts_delete AFTER DELETE ON note BEGIN
+    DELETE FROM note_fts WHERE note_id = old.id;
+END;
 
 selectActive:
 SELECT * FROM note
 WHERE deleted_at IS NULL
 ORDER BY pinned DESC, updated_at DESC;
 
+-- Лёгкий запрос для списка: вместо всего текста — первые 300 символов.
+selectSummaries:
+SELECT id, title, substr(content, 1, 300) AS preview, pinned, updated_at, folder_id, note_date, is_daily, encrypted, tags
+FROM note WHERE deleted_at IS NULL
+ORDER BY pinned DESC, updated_at DESC;
+
+selectTrash:
+SELECT id, title, substr(content, 1, 300) AS preview, pinned, updated_at, folder_id, note_date, is_daily, encrypted, tags, deleted_at
+FROM note WHERE deleted_at IS NOT NULL
+ORDER BY deleted_at DESC;
+
 selectById:
 SELECT * FROM note WHERE id = ?;
+
+-- Сравнение без учёта регистра делаем в Kotlin: lower() в SQLite понимает только латиницу.
+selectTitles:
+SELECT id, title FROM note WHERE deleted_at IS NULL;
+
+selectDaily:
+SELECT id FROM note WHERE deleted_at IS NULL AND is_daily = 1 AND note_date = ? LIMIT 1;
+
+selectBacklinks:
+SELECT id FROM note
+WHERE deleted_at IS NULL AND id != ? AND (instr(content, ?) > 0 OR instr(content, ?) > 0);
 
 insert:
 INSERT INTO note(id, title, content, pinned, created_at, updated_at)
 VALUES (?, ?, ?, 0, ?, ?);
 
+insertFull:
+INSERT INTO note(id, title, content, pinned, created_at, updated_at, folder_id, note_date, is_daily, tags)
+VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?);
+
 updateText:
 UPDATE note SET title = ?, content = ?, updated_at = ? WHERE id = ?;
+
+updateTextAndTags:
+UPDATE note SET title = ?, content = ?, tags = ?, updated_at = ? WHERE id = ?;
+
+setTags:
+UPDATE note SET tags = ? WHERE id = ?;
 
 setPinned:
 UPDATE note SET pinned = ?, updated_at = ? WHERE id = ?;
 
+setFolder:
+UPDATE note SET folder_id = ?, updated_at = ? WHERE id = ?;
+
+setDate:
+UPDATE note SET note_date = ?, updated_at = ? WHERE id = ?;
+
+setEncrypted:
+UPDATE note SET content = ?, encrypted = ?, tags = ?, updated_at = ? WHERE id = ?;
+
 softDelete:
 UPDATE note SET deleted_at = ?, updated_at = ? WHERE id = ?;
+
+restore:
+UPDATE note SET deleted_at = NULL, updated_at = ? WHERE id = ?;
+
+-- Окончательное удаление (из корзины). Когда появится синхронизация, вместо удаления нужна «пустая» запись-надгробие.
+deleteForever:
+DELETE FROM note WHERE id = ?;
+
+purgeTrashBefore:
+DELETE FROM note WHERE deleted_at IS NOT NULL AND deleted_at < ?;
+
+selectUntagged:
+SELECT id, content FROM note WHERE tags = '' AND encrypted = 0 AND instr(content, '#') > 0;
+
+search:
+SELECT note_id FROM note_fts WHERE note_fts MATCH ? ORDER BY rank LIMIT 200;
+
+selectFolders:
+SELECT id, name, parent_id FROM note_folder ORDER BY lower(name);
+
+insertFolder:
+INSERT INTO note_folder(id, name, parent_id, created_at) VALUES (?, ?, ?, ?);
+
+renameFolder:
+UPDATE note_folder SET name = ? WHERE id = ?;
+
+reparentFolders:
+UPDATE note_folder SET parent_id = ? WHERE parent_id = ?;
+
+moveNotesOutOfFolder:
+UPDATE note SET folder_id = ? WHERE folder_id = ?;
+
+deleteFolder:
+DELETE FROM note_folder WHERE id = ?;
+
+insertVersion:
+INSERT INTO note_version(id, note_id, title, content, created_at) VALUES (?, ?, ?, ?, ?);
+
+selectVersions:
+SELECT id, title, content, created_at FROM note_version WHERE note_id = ? ORDER BY created_at DESC;
+
+lastVersionAt:
+SELECT MAX(created_at) FROM note_version WHERE note_id = ?;
+
+trimVersions:
+DELETE FROM note_version WHERE note_id = ? AND id NOT IN (
+    SELECT id FROM note_version WHERE note_id = ? ORDER BY created_at DESC LIMIT 50
+);
+
+deleteVersions:
+DELETE FROM note_version WHERE note_id = ?;

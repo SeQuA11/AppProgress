@@ -9,6 +9,7 @@ plugins {
 kotlin {
     jvmToolchain(21)
     jvm()
+    compilerOptions { freeCompilerArgs.add("-Xexpect-actual-classes") }
 
     sourceSets {
         commonMain.dependencies {

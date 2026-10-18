@@ -68,6 +68,8 @@ import com.appprogress.kanban.Card
 import com.appprogress.kanban.KanbanRepository
 import com.appprogress.ui.AppContainer
 import com.appprogress.ui.common.ConfirmDialog
+import com.appprogress.ui.common.LocalNavigator
+import com.appprogress.ui.common.NavTarget
 import com.appprogress.ui.common.TextInputDialog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -89,6 +91,17 @@ fun KanbanScreen(container: AppContainer) {
     val boards by remember { repo.observeBoards() }.collectAsState(initial = null)
     var selectedId by remember { mutableStateOf<String?>(null) }
     var dialog by remember { mutableStateOf<KanbanDialog?>(null) }
+    // Карточка, которую нужно открыть по ссылке из заметки, календаря или палитры команд.
+    var openCardId by remember { mutableStateOf<String?>(null) }
+    val navigator = LocalNavigator.current
+    LaunchedEffect(navigator.pending) {
+        navigator.consume<NavTarget.Card>()?.let { target ->
+            repo.allCards().firstOrNull { it.id == target.id }?.let { card ->
+                selectedId = card.boardId
+                openCardId = card.id
+            }
+        }
+    }
 
     LaunchedEffect(boards) {
         val list = boards ?: return@LaunchedEffect
@@ -107,7 +120,7 @@ fun KanbanScreen(container: AppContainer) {
         when {
             boards == null -> Unit
             boards!!.isEmpty() -> EmptyBoards { dialog = KanbanDialog.NewBoard }
-            selected != null -> BoardView(repo, scope, selected.id, onDialog = { dialog = it })
+            selected != null -> BoardView(repo, scope, selected.id, openCardId, onOpened = { openCardId = null }, onDialog = { dialog = it })
         }
     }
 
@@ -196,11 +209,23 @@ private fun EmptyBoards(onCreate: () -> Unit) {
 }
 
 @Composable
-private fun BoardView(repo: KanbanRepository, scope: CoroutineScope, boardId: String, onDialog: (KanbanDialog) -> Unit) {
+private fun BoardView(
+    repo: KanbanRepository,
+    scope: CoroutineScope,
+    boardId: String,
+    openCardId: String?,
+    onOpened: () -> Unit,
+    onDialog: (KanbanDialog) -> Unit,
+) {
     val columns by remember(boardId) { repo.observeBoard(boardId) }.collectAsState(initial = emptyList())
     val drag = remember(boardId) { DragController() }
     drag.columns = columns
     var editing by remember { mutableStateOf<Card?>(null) }
+    LaunchedEffect(openCardId, columns) {
+        val card = columns.flatMap { it.cards }.firstOrNull { it.id == openCardId } ?: return@LaunchedEffect
+        editing = card
+        onOpened()
+    }
     val target = drag.target()
 
     val onDrop: () -> Unit = {

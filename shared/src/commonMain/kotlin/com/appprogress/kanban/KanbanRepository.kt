@@ -9,6 +9,7 @@ import com.appprogress.db.AppDatabase
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 class KanbanRepository(
@@ -133,3 +134,7 @@ class KanbanRepository(
         priority: Long, dueDate: String?, labels: String, position: Double,
     ) = Card(id, boardId, columnId, title, description, Priority.of(priority), Dates.parseIso(dueDate), parseLabels(labels), position)
 }
+
+/** Все карточки всех досок с указанием доски и колонки. */
+suspend fun KanbanRepository.cardRefs(): List<CardRef> =
+    observeBoards().first().flatMap { b -> observeBoard(b.id).first().flatMap { col -> col.cards.map { CardRef(b, col, it) } } }
