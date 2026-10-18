@@ -26,16 +26,7 @@ enum class Section(
 ) {
     Notes("Заметки", Icons.Filled.Edit, content = { NotesScreen(it.notes, it.scope) }),
 
-    Kanban(
-        "Канбан", Icons.AutoMirrored.Filled.List,
-        summary = "Доски с задачами: перетаскивайте карточки между колонками.",
-        planned = listOf(
-            "Несколько досок и колонок",
-            "Перетаскивание карточек мышью",
-            "Сроки, приоритеты, метки и подзадачи",
-            "Связь карточки с заметкой",
-        ),
-    ),
+    Kanban("Канбан", Icons.AutoMirrored.Filled.List, content = { com.appprogress.ui.kanban.KanbanScreen(it) }),
 
     Calendar(
         "Календарь", Icons.Filled.DateRange,
