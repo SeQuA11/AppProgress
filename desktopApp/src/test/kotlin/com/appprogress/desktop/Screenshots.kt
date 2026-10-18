@@ -52,11 +52,16 @@ object Screenshots {
                 Thread.sleep(120)
                 time += 100_000_000L
             }
-            val png = scene.render(time).encodeToData(EncodedImageFormat.PNG)!!.bytes
-            File(outDir, "$name.png").writeBytes(png)
-            assertTrue(png.size > 10_000, "скриншот $name подозрительно пустой")
+            save(scene, name, time)
         } finally {
             scene.close()
         }
+    }
+
+    /** Сохраняет текущий кадр сцены в PNG (для тестов, которые сами двигают мышь). */
+    fun save(scene: ImageComposeScene, name: String, nanoTime: Long = System.nanoTime()) {
+        val png = scene.render(nanoTime).encodeToData(EncodedImageFormat.PNG)!!.bytes
+        File(outDir, "$name.png").writeBytes(png)
+        assertTrue(png.size > 10_000, "скриншот $name подозрительно пустой")
     }
 }
