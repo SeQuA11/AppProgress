@@ -59,16 +59,7 @@ enum class Section(
         ),
     ),
 
-    Mail(
-        "Почта", Icons.Filled.Email,
-        summary = "Все ящики в одной ленте, важное — сверху.",
-        planned = listOf(
-            "Несколько ящиков: Gmail, Outlook, Яндекс, Mail.ru и любые IMAP",
-            "Приоритеты: важно / обычное / неважное",
-            "Ваши правила и обучение на ваших действиях",
-            "Письмо → задача или событие одной кнопкой",
-        ),
-    ),
+    Mail("Почта", Icons.Filled.Email, content = { com.appprogress.ui.mail.MailScreen(it) }),
 
     Assistant(
         "Ассистент", Icons.Filled.Face,

@@ -20,9 +20,12 @@ kotlin {
         }
         jvmMain.dependencies {
             implementation(libs.sqldelight.sqlite.driver)
+            implementation(libs.angus.mail)
+            implementation(libs.jna.platform)
         }
         jvmTest.dependencies {
             implementation(kotlin("test"))
+            implementation(libs.greenmail)
         }
     }
 }
