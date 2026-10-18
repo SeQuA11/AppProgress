@@ -62,8 +62,7 @@ import com.appprogress.assistant.ChatItem
 import com.appprogress.assistant.EngineStatus
 import com.appprogress.assistant.LlmEngine
 import com.appprogress.assistant.OllamaEngine
-import com.appprogress.assistant.dateTool
-import com.appprogress.assistant.notesTools
+import com.appprogress.assistant.assistantTools
 import com.appprogress.ui.AppContainer
 import kotlinx.coroutines.launch
 
@@ -75,8 +74,10 @@ const val RECOMMENDED_MODEL = "qwen3:8b"
 
 private val suggestions = listOf(
     "Что у меня в заметках про проект?",
-    "Сделай короткую сводку моих заметок",
-    "Создай заметку со списком дел на завтра",
+    "Что у меня сегодня?",
+    "Какие важные письма пришли?",
+    "Добавь в календарь день рождения мамы 12 марта",
+    "Сделай задачи из важных писем",
 )
 
 /** [engineFactory] позволяет подменить «мозг» в тестах; по умолчанию — Ollama по адресу из настроек. */
@@ -91,7 +92,7 @@ fun AssistantScreen(
     var model by remember { mutableStateOf<String?>(null) }
     var checkCounter by remember { mutableStateOf(0) }
     val engine = remember(url) { engineFactory(url) }
-    val assistant = remember(engine) { Assistant(engine, notesTools(container.notes) + dateTool()) }
+    val assistant = remember(engine) { Assistant(engine, assistantTools(container.db, container.io, container.notes)) }
     val items = remember(assistant) { mutableStateListOf<ChatItem>() }
     var input by remember { mutableStateOf("") }
     var thinking by remember { mutableStateOf(false) }
@@ -244,7 +245,7 @@ private fun Chat(
             if (items.isEmpty()) {
                 item {
                     Column(Modifier.fillMaxWidth().padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Спросите что-нибудь о своих заметках или попросите что-то создать", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Спросите о заметках, задачах, календаре или почте — или попросите что-то создать", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(12.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             suggestions.forEach { s -> AssistChip(onClick = { onSend(s) }, label = { Text(s) }) }

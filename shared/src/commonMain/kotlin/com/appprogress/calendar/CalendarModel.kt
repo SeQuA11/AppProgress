@@ -126,7 +126,9 @@ object RuText {
     fun dayMonth(date: LocalDate) = "${date.day} ${monthsGenitive[date.month.number - 1]}"
 
     /** «18 октября, суббота» */
-    fun dayMonthWeekday(date: LocalDate) = "${dayMonth(date)}, ${weekdays[date.dayOfWeek.ordinal]}"
+    fun dayMonthWeekday(date: LocalDate) = "${dayMonth(date)}, ${weekday(date)}"
+
+    fun weekday(date: LocalDate) = weekdays[date.dayOfWeek.ordinal]
 
     fun time(t: LocalTime) = "${t.hour.toString().padStart(2, '0')}:${t.minute.toString().padStart(2, '0')}"
 

@@ -16,7 +16,10 @@ interface AssistantTool {
     val writes: Boolean get() = false
 
     /** Человеческое описание действия для карточки подтверждения: «Создать заметку „Покупки“». */
-    fun describe(args: JsonObject): String = spec.name
+    suspend fun describe(args: JsonObject): String = spec.name
+
+    /** Что ассистент делает при чтении — строка в чате: «Ищу в заметках: „отпуск“». */
+    fun activity(args: JsonObject): String = "Использую ${spec.name}"
 
     /** Выполняет инструмент и возвращает текст результата для модели. */
     suspend fun run(args: JsonObject): String

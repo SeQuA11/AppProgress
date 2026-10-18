@@ -14,6 +14,9 @@ fun notesTools(notes: NotesRepository): List<AssistantTool> = listOf(
             stringParams("query" to "Слова для поиска", required = emptyList()),
         )
 
+        override fun activity(args: JsonObject) =
+            args.str("query").let { if (it.isBlank()) "Смотрю последние заметки" else "Ищу в заметках: «$it»" }
+
         override suspend fun run(args: JsonObject): String {
             val query = args.str("query")
             val words = query.lowercase().split(' ', ',').filter { it.length > 2 }
@@ -31,6 +34,8 @@ fun notesTools(notes: NotesRepository): List<AssistantTool> = listOf(
             stringParams("id" to "id заметки"),
         )
 
+        override fun activity(args: JsonObject) = "Читаю заметку"
+
         override suspend fun run(args: JsonObject): String {
             val note = notes.get(args.str("id")) ?: return "Заметка не найдена."
             return "«${note.displayTitle}»\n${note.content}"
@@ -44,7 +49,7 @@ fun notesTools(notes: NotesRepository): List<AssistantTool> = listOf(
         )
         override val writes = true
 
-        override fun describe(args: JsonObject) = "Создать заметку «${args.str("title").ifBlank { "Без названия" }}»"
+        override suspend fun describe(args: JsonObject) = "Создать заметку «${args.str("title").ifBlank { "Без названия" }}»"
 
         override suspend fun run(args: JsonObject): String {
             notes.create(args.str("title"), args.str("content"))
@@ -56,5 +61,6 @@ fun notesTools(notes: NotesRepository): List<AssistantTool> = listOf(
 /** Текущая дата — без неё модель не знает, какое сегодня число. */
 fun dateTool(): AssistantTool = object : AssistantTool {
     override val spec = ToolSpec("today", "Возвращает сегодняшнюю дату.", stringParams(required = emptyList()))
+    override fun activity(args: JsonObject) = "Смотрю дату"
     override suspend fun run(args: JsonObject) = "Сегодня ${Dates.format(Dates.today())}"
 }
