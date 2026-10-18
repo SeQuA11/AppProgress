@@ -14,7 +14,8 @@ import com.appprogress.ui.notes.NotesScreen
 
 /**
  * Разделы приложения. [content] — экран раздела; null значит «в разработке», и тогда показываем [planned].
- * Каждый модуль подключается правкой только своей строки здесь — ветки модулей не конфликтуют.
+ * Каждый модуль подключается правкой только своей записи. Пустые строки между записями нужны:
+ * без них правки соседних записей из разных веток Git считает конфликтом.
  */
 enum class Section(
     val title: String,
@@ -24,6 +25,7 @@ enum class Section(
     val content: (@Composable (AppContainer) -> Unit)? = null,
 ) {
     Notes("Заметки", Icons.Filled.Edit, content = { NotesScreen(it.notes, it.scope) }),
+
     Kanban(
         "Канбан", Icons.AutoMirrored.Filled.List,
         summary = "Доски с задачами: перетаскивайте карточки между колонками.",
@@ -34,6 +36,7 @@ enum class Section(
             "Связь карточки с заметкой",
         ),
     ),
+
     Calendar(
         "Календарь", Icons.Filled.DateRange,
         summary = "События, заметки на даты, дни рождения и напоминания.",
@@ -44,6 +47,7 @@ enum class Section(
             "Задачи со сроком прямо в календаре",
         ),
     ),
+
     Studio(
         "Студия", Icons.Filled.Build,
         summary = "Таблицы, графики и диаграммы в одном месте.",
@@ -54,6 +58,7 @@ enum class Section(
             "Экспорт в PNG, SVG и PDF",
         ),
     ),
+
     Mail(
         "Почта", Icons.Filled.Email,
         summary = "Все ящики в одной ленте, важное — сверху.",
@@ -64,6 +69,7 @@ enum class Section(
             "Письмо → задача или событие одной кнопкой",
         ),
     ),
+
     Assistant(
         "Ассистент", Icons.Filled.Face,
         summary = "ИИ-помощник, который работает прямо на вашем компьютере, без интернета.",
