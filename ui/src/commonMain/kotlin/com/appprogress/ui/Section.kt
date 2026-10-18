@@ -37,16 +37,7 @@ enum class Section(
         ),
     ),
 
-    Calendar(
-        "Календарь", Icons.Filled.DateRange,
-        summary = "События, заметки на даты, дни рождения и напоминания.",
-        planned = listOf(
-            "Виды: месяц, неделя, день и список",
-            "Дни рождения и важные даты с ежегодным повтором",
-            "Напоминания за N минут, часов или дней",
-            "Задачи со сроком прямо в календаре",
-        ),
-    ),
+    Calendar("Календарь", Icons.Filled.DateRange, content = { com.appprogress.ui.calendar.CalendarScreen(it) }),
 
     Studio(
         "Студия", Icons.Filled.Build,

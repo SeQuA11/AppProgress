@@ -1,0 +1,50 @@
+-- Календарь: события, дни рождения, важные даты, заметки на дату.
+-- Повторяющееся событие хранится одной строкой; конкретные даты вычисляются (см. Recurrence).
+CREATE TABLE IF NOT EXISTS calendar_event (
+    id TEXT NOT NULL PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    kind TEXT NOT NULL DEFAULT 'event',        -- event | birthday | important | note
+    start_date TEXT NOT NULL,                  -- ГГГГ-ММ-ДД
+    start_time TEXT,                           -- ЧЧ:ММ; NULL — на весь день
+    end_time TEXT,
+    repeat_rule TEXT NOT NULL DEFAULT 'none',  -- none | daily | weekly | monthly | yearly
+    repeat_until TEXT,                         -- ГГГГ-ММ-ДД или NULL — без конца
+    remind_minutes INTEGER,                    -- за сколько минут до начала напомнить; NULL — не напоминать
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
+);
+
+-- Какие напоминания уже показаны: (событие, дата конкретного повторения).
+CREATE TABLE IF NOT EXISTS reminder_sent (
+    event_id TEXT NOT NULL,
+    occurrence_date TEXT NOT NULL,
+    sent_at INTEGER NOT NULL,
+    PRIMARY KEY (event_id, occurrence_date)
+);
+
+selectAll:
+SELECT id, title, description, kind, start_date, start_time, end_time, repeat_rule, repeat_until, remind_minutes
+FROM calendar_event WHERE deleted_at IS NULL ORDER BY start_date, start_time;
+
+insert:
+INSERT INTO calendar_event(id, title, description, kind, start_date, start_time, end_time, repeat_rule, repeat_until, remind_minutes, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+update:
+UPDATE calendar_event SET title = ?, description = ?, kind = ?, start_date = ?, start_time = ?, end_time = ?,
+    repeat_rule = ?, repeat_until = ?, remind_minutes = ?, updated_at = ?
+WHERE id = ?;
+
+softDelete:
+UPDATE calendar_event SET deleted_at = ?, updated_at = ? WHERE id = ?;
+
+isSent:
+SELECT COUNT(*) FROM reminder_sent WHERE event_id = ? AND occurrence_date = ?;
+
+markSent:
+INSERT OR IGNORE INTO reminder_sent(event_id, occurrence_date, sent_at) VALUES (?, ?, ?);
+
+forgetSent:
+DELETE FROM reminder_sent WHERE event_id = ?;
