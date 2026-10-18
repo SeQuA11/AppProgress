@@ -70,16 +70,7 @@ enum class Section(
         ),
     ),
 
-    Assistant(
-        "Ассистент", Icons.Filled.Face,
-        summary = "ИИ-помощник, который работает прямо на вашем компьютере, без интернета.",
-        planned = listOf(
-            "Локальная языковая модель — данные не покидают компьютер",
-            "Поиск по заметкам, задачам и почте",
-            "Создаёт задачи и события — только с вашим подтверждением",
-            "Сводка дня: что важно сегодня",
-        ),
-    ),
+    Assistant("Ассистент", Icons.Filled.Face, content = { com.appprogress.ui.assistant.AssistantScreen(it) }),
 
     // Экран настроек рисует сам App: ему нужна текущая тема.
     Settings("Настройки", Icons.Filled.Settings);
