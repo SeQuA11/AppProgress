@@ -27,9 +27,16 @@ compose.desktop {
             packageVersion = "0.1.0"
             description = "Planner: notes, boards, calendar"
             vendor = "AppProgress"
-            // Установщик кладёт урезанную Java только с нужными модулями (список — из задачи suggestRuntimeModules).
-            // java.sql нужен драйверу SQLite.
-            modules("java.instrument", "java.sql", "jdk.unsupported")
+            // Установщик кладёт урезанную Java только с нужными модулями. Часть списка дала задача
+            // suggestRuntimeModules, остальное она не видит, потому что эти модули подгружаются динамически:
+            //   jdk.charsets   — письма в windows-1251 и KOI8-R;
+            //   jdk.localedata — русские названия месяцев в датах;
+            //   jdk.crypto.ec  — TLS с почтовыми серверами (шифры на эллиптических кривых);
+            //   java.net.http  — обращение к локальному ИИ (Ollama).
+            modules(
+                "java.instrument", "java.sql", "jdk.unsupported", "java.desktop", "java.naming",
+                "java.net.http", "jdk.charsets", "jdk.localedata", "jdk.crypto.ec",
+            )
             windows {
                 menuGroup = "AppProgress"
                 shortcut = true
