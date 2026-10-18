@@ -14,7 +14,7 @@ kotlin {
         commonMain.dependencies {
             api(libs.coroutines.core)
             api(libs.datetime)
-            implementation(libs.serialization.json)
+            api(libs.serialization.json)
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines)
         }
