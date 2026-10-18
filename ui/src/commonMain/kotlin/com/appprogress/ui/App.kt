@@ -21,6 +21,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,10 +32,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.appprogress.ui.common.ComingSoonScreen
-import com.appprogress.ui.notes.NotesScreen
 import com.appprogress.ui.settings.SettingsScreen
 import com.appprogress.ui.theme.AppTheme
 import com.appprogress.ui.theme.ThemeMode
+import kotlinx.coroutines.launch
+
+private const val THEME_KEY = "ui.theme"
 
 @Composable
 fun App(
@@ -44,6 +47,15 @@ fun App(
 ) {
     var section by remember { mutableStateOf(initialSection) }
     var theme by remember { mutableStateOf(initialTheme) }
+    val setTheme: (ThemeMode) -> Unit = { mode ->
+        theme = mode
+        container.scope.launch { container.settings.put(THEME_KEY, mode.name) }
+    }
+    LaunchedEffect(Unit) {
+        container.settings.get(THEME_KEY)
+            ?.let { saved -> ThemeMode.entries.firstOrNull { it.name == saved } }
+            ?.let { theme = it }
+    }
 
     AppTheme(theme) {
         // Surface задаёт цвет текста по умолчанию (onBackground) — без него текст в тёмной теме был бы чёрным.
@@ -52,9 +64,10 @@ fun App(
                 Sidebar(section, version = container.version, onSelect = { section = it })
                 VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Box(Modifier.fillMaxSize()) {
-                    when (section) {
-                        Section.Notes -> NotesScreen(container.notes, container.scope)
-                        Section.Settings -> SettingsScreen(theme, { theme = it }, container)
+                    val content = section.content
+                    when {
+                        section == Section.Settings -> SettingsScreen(theme, setTheme, container)
+                        content != null -> content(container)
                         else -> ComingSoonScreen(section)
                     }
                 }

@@ -1,0 +1,17 @@
+-- Настройки приложения в виде «ключ → значение».
+CREATE TABLE IF NOT EXISTS setting (
+    key TEXT NOT NULL PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+-- Журнал применённых миграций по имени (см. DatabaseFactory.migrations).
+CREATE TABLE IF NOT EXISTS applied_migration (
+    name TEXT NOT NULL PRIMARY KEY,
+    applied_at INTEGER NOT NULL
+);
+
+get:
+SELECT value FROM setting WHERE key = ?;
+
+put:
+INSERT OR REPLACE INTO setting(key, value) VALUES (?, ?);

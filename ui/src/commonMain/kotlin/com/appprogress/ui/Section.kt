@@ -8,19 +8,24 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.appprogress.ui.notes.NotesScreen
 
-/** Разделы приложения. [ready] = false — раздел ещё в разработке, показываем, что в нём будет. */
+/**
+ * Разделы приложения. [content] — экран раздела; null значит «в разработке», и тогда показываем [planned].
+ * Каждый модуль подключается правкой только своей строки здесь — ветки модулей не конфликтуют.
+ */
 enum class Section(
     val title: String,
     val icon: ImageVector,
-    val ready: Boolean,
     val summary: String = "",
     val planned: List<String> = emptyList(),
+    val content: (@Composable (AppContainer) -> Unit)? = null,
 ) {
-    Notes("Заметки", Icons.Filled.Edit, ready = true),
+    Notes("Заметки", Icons.Filled.Edit, content = { NotesScreen(it.notes, it.scope) }),
     Kanban(
-        "Канбан", Icons.AutoMirrored.Filled.List, ready = false,
+        "Канбан", Icons.AutoMirrored.Filled.List,
         summary = "Доски с задачами: перетаскивайте карточки между колонками.",
         planned = listOf(
             "Несколько досок и колонок",
@@ -30,7 +35,7 @@ enum class Section(
         ),
     ),
     Calendar(
-        "Календарь", Icons.Filled.DateRange, ready = false,
+        "Календарь", Icons.Filled.DateRange,
         summary = "События, заметки на даты, дни рождения и напоминания.",
         planned = listOf(
             "Виды: месяц, неделя, день и список",
@@ -40,7 +45,7 @@ enum class Section(
         ),
     ),
     Studio(
-        "Студия", Icons.Filled.Build, ready = false,
+        "Студия", Icons.Filled.Build,
         summary = "Таблицы, графики и диаграммы в одном месте.",
         planned = listOf(
             "Таблицы с типами колонок и формулами",
@@ -50,7 +55,7 @@ enum class Section(
         ),
     ),
     Mail(
-        "Почта", Icons.Filled.Email, ready = false,
+        "Почта", Icons.Filled.Email,
         summary = "Все ящики в одной ленте, важное — сверху.",
         planned = listOf(
             "Несколько ящиков: Gmail, Outlook, Яндекс, Mail.ru и любые IMAP",
@@ -60,7 +65,7 @@ enum class Section(
         ),
     ),
     Assistant(
-        "Ассистент", Icons.Filled.Face, ready = false,
+        "Ассистент", Icons.Filled.Face,
         summary = "ИИ-помощник, который работает прямо на вашем компьютере, без интернета.",
         planned = listOf(
             "Локальная языковая модель — данные не покидают компьютер",
@@ -69,5 +74,9 @@ enum class Section(
             "Сводка дня: что важно сегодня",
         ),
     ),
-    Settings("Настройки", Icons.Filled.Settings, ready = true),
+
+    // Экран настроек рисует сам App: ему нужна текущая тема.
+    Settings("Настройки", Icons.Filled.Settings);
+
+    val ready: Boolean get() = content != null || this == Settings
 }

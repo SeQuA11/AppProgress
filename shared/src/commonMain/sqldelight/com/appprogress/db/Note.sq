@@ -1,6 +1,7 @@
 -- Заметки. Поля updated_at / deleted_at нужны будущей синхронизации между устройствами:
 -- удаление «мягкое» (ставим deleted_at), чтобы другое устройство узнало, что заметку удалили.
-CREATE TABLE note (
+-- IF NOT EXISTS: схема применяется при каждом запуске, см. DatabaseFactory.
+CREATE TABLE IF NOT EXISTS note (
     id TEXT NOT NULL PRIMARY KEY,
     title TEXT NOT NULL DEFAULT '',
     content TEXT NOT NULL DEFAULT '',
@@ -10,7 +11,7 @@ CREATE TABLE note (
     deleted_at INTEGER
 );
 
-CREATE INDEX note_updated_at ON note(updated_at);
+CREATE INDEX IF NOT EXISTS note_updated_at ON note(updated_at);
 
 selectActive:
 SELECT * FROM note

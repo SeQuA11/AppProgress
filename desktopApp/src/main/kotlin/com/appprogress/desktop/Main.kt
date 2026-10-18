@@ -5,7 +5,6 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.appprogress.core.DatabaseFactory
-import com.appprogress.notes.NotesRepository
 import com.appprogress.ui.App
 import com.appprogress.ui.AppContainer
 import kotlinx.coroutines.CoroutineScope
@@ -15,15 +14,13 @@ import java.awt.Dimension
 
 const val APP_VERSION = "0.1.0"
 
-fun createContainer(): AppContainer {
-    val dataDir = DatabaseFactory.defaultDataDir()
-    return AppContainer(
-        notes = NotesRepository(DatabaseFactory.open(), Dispatchers.IO),
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
-        dataLocation = dataDir.absolutePath,
-        version = APP_VERSION,
-    )
-}
+fun createContainer(): AppContainer = AppContainer(
+    db = DatabaseFactory.open(),
+    io = Dispatchers.IO,
+    scope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
+    dataLocation = DatabaseFactory.defaultDataDir().absolutePath,
+    version = APP_VERSION,
+)
 
 fun main() {
     val container = createContainer()

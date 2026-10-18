@@ -24,26 +24,36 @@ object DatabaseFactory {
 
     fun inMemory(): AppDatabase = AppDatabase(createDriver(JdbcSqliteDriver.IN_MEMORY))
 
+    /**
+     * Изменения существующих таблиц (новые колонки и т.п.). Каждая миграция — по уникальному имени,
+     * а не по номеру версии: модули разрабатываются в разных ветках, и номера бы конфликтовали.
+     */
+    private val migrations: List<Pair<String, String>> = listOf(
+        // "2026-11-01-note-color" to "ALTER TABLE note ADD COLUMN color TEXT",
+    )
+
     private fun createDriver(url: String): SqlDriver {
         val driver = JdbcSqliteDriver(url)
-        migrate(driver)
+        driver.execute(null, "PRAGMA foreign_keys = ON", 0)
+        // Все CREATE в .sq-файлах написаны с IF NOT EXISTS, поэтому схему можно применять при каждом запуске:
+        // новые таблицы модулей появятся в уже существующей базе, старые не тронутся.
+        AppDatabase.Schema.create(driver)
+        applyMigrations(driver)
         return driver
     }
 
-    /**
-     * Версию схемы храним в PRAGMA user_version самого файла базы.
-     * 0 — база новая: создаём таблицы; меньше текущей — применяем миграции по порядку.
-     */
-    private fun migrate(driver: SqlDriver) {
-        val schema = AppDatabase.Schema
-        val current = driver.executeQuery(null, "PRAGMA user_version", { cursor ->
-            QueryResult.Value(if (cursor.next().value) cursor.getLong(0) ?: 0L else 0L)
-        }, 0).value
-        when {
-            current == 0L -> schema.create(driver)
-            current < schema.version -> schema.migrate(driver, current, schema.version)
-            else -> return
+    private fun applyMigrations(driver: SqlDriver) {
+        for ((name, sql) in migrations) {
+            val applied = driver.executeQuery(
+                null, "SELECT 1 FROM applied_migration WHERE name = ?",
+                { QueryResult.Value(it.next().value) }, 1,
+            ) { bindString(0, name) }.value
+            if (applied) continue
+            driver.execute(null, sql, 0)
+            driver.execute(null, "INSERT INTO applied_migration(name, applied_at) VALUES (?, ?)", 2) {
+                bindString(0, name)
+                bindLong(1, nowMillis())
+            }
         }
-        driver.execute(null, "PRAGMA user_version = ${schema.version}", 0)
     }
 }

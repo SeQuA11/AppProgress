@@ -2,6 +2,7 @@
 // Сейчас собирается только под desktop (JVM). Android добавится вторым таргетом.
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.sqldelight)
 }
 
@@ -11,7 +12,9 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(libs.coroutines.core)
+            api(libs.coroutines.core)
+            api(libs.datetime)
+            implementation(libs.serialization.json)
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines)
         }
