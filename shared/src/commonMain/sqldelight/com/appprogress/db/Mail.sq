@@ -1,0 +1,102 @@
+-- Почта: ящики, письма (заголовки и текст для чтения офлайн) и правила сортировки.
+CREATE TABLE IF NOT EXISTS mail_account (
+    id TEXT NOT NULL PRIMARY KEY,
+    email TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    imap_host TEXT NOT NULL,
+    imap_port INTEGER NOT NULL,
+    security TEXT NOT NULL DEFAULT 'ssl',  -- ssl | starttls | none
+    username TEXT NOT NULL,
+    secret TEXT NOT NULL,                  -- пароль приложения, зашифрованный (см. SecretCipher)
+    color INTEGER NOT NULL,
+    last_sync_at INTEGER,
+    last_error TEXT,
+    created_at INTEGER NOT NULL,
+    deleted_at INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS mail_message (
+    id TEXT NOT NULL PRIMARY KEY,          -- ящик:папка:UID
+    account_id TEXT NOT NULL,
+    folder TEXT NOT NULL,
+    uid INTEGER NOT NULL,
+    from_name TEXT NOT NULL,
+    from_address TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    snippet TEXT NOT NULL,
+    body TEXT NOT NULL,
+    received_at INTEGER NOT NULL,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    has_unsubscribe INTEGER NOT NULL DEFAULT 0,
+    is_auto INTEGER NOT NULL DEFAULT 0,
+    priority TEXT NOT NULL,
+    category TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    priority_manual INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS mail_message_received ON mail_message(received_at);
+CREATE INDEX IF NOT EXISTS mail_message_account ON mail_message(account_id, folder, uid);
+
+CREATE TABLE IF NOT EXISTS mail_rule (
+    id TEXT NOT NULL PRIMARY KEY,
+    field TEXT NOT NULL,                   -- from | subject | any
+    pattern TEXT NOT NULL,
+    priority TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+selectAccounts:
+SELECT id, email, display_name, imap_host, imap_port, security, username, secret, color, last_sync_at, last_error
+FROM mail_account WHERE deleted_at IS NULL ORDER BY created_at;
+
+insertAccount:
+INSERT INTO mail_account(id, email, display_name, imap_host, imap_port, security, username, secret, color, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+setSyncResult:
+UPDATE mail_account SET last_sync_at = ?, last_error = ? WHERE id = ?;
+
+softDeleteAccount:
+UPDATE mail_account SET deleted_at = ? WHERE id = ?;
+
+deleteMessagesOfAccount:
+DELETE FROM mail_message WHERE account_id = ?;
+
+selectRecent:
+SELECT m.id, m.account_id, m.from_name, m.from_address, m.subject, m.snippet, m.received_at, m.is_read,
+       m.has_unsubscribe, m.is_auto, m.priority, m.category, m.reason, m.priority_manual
+FROM mail_message m JOIN mail_account a ON a.id = m.account_id AND a.deleted_at IS NULL
+ORDER BY m.received_at DESC LIMIT ?;
+
+selectBody:
+SELECT body FROM mail_message WHERE id = ?;
+
+maxUid:
+SELECT MAX(uid) FROM mail_message WHERE account_id = ? AND folder = ?;
+
+insertMessage:
+INSERT OR IGNORE INTO mail_message(id, account_id, folder, uid, from_name, from_address, subject, snippet, body,
+    received_at, is_read, has_unsubscribe, is_auto, priority, category, reason)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+markRead:
+UPDATE mail_message SET is_read = 1 WHERE id = ?;
+
+setManualPriority:
+UPDATE mail_message SET priority = ?, reason = ?, priority_manual = 1 WHERE id = ?;
+
+setClassification:
+UPDATE mail_message SET priority = ?, category = ?, reason = ? WHERE id = ? AND priority_manual = 0;
+
+selectForReclassify:
+SELECT id, from_name, from_address, subject, snippet, has_unsubscribe, is_auto FROM mail_message WHERE priority_manual = 0;
+
+selectRules:
+SELECT id, field, pattern, priority FROM mail_rule ORDER BY created_at;
+
+insertRule:
+INSERT INTO mail_rule(id, field, pattern, priority, created_at) VALUES (?, ?, ?, ?, ?);
+
+deleteRule:
+DELETE FROM mail_rule WHERE id = ?;
