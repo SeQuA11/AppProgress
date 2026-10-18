@@ -30,16 +30,7 @@ enum class Section(
 
     Calendar("Календарь", Icons.Filled.DateRange, content = { com.appprogress.ui.calendar.CalendarScreen(it) }),
 
-    Studio(
-        "Студия", Icons.Filled.Build,
-        summary = "Таблицы, графики и диаграммы в одном месте.",
-        planned = listOf(
-            "Таблицы с типами колонок и формулами",
-            "Графики, которые обновляются вместе с таблицей",
-            "Редактор диаграмм: фигуры, стрелки, шаблоны",
-            "Экспорт в PNG, SVG и PDF",
-        ),
-    ),
+    Studio("Студия", Icons.Filled.Build, content = { com.appprogress.ui.studio.StudioScreen(it) }),
 
     Mail(
         "Почта", Icons.Filled.Email,
