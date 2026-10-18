@@ -1,0 +1,32 @@
+-- Студия: таблицы, графики и диаграммы. Содержимое документа — JSON в колонке data
+-- (структура описана в com.appprogress.studio). Так новый вид документа не требует новых таблиц.
+CREATE TABLE IF NOT EXISTS studio_doc (
+    id TEXT NOT NULL PRIMARY KEY,
+    kind TEXT NOT NULL,          -- table | chart | diagram
+    title TEXT NOT NULL,
+    data TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS studio_doc_kind ON studio_doc(kind);
+
+selectByKind:
+SELECT id, kind, title, data, updated_at FROM studio_doc
+WHERE kind = ? AND deleted_at IS NULL ORDER BY updated_at DESC;
+
+selectById:
+SELECT id, kind, title, data, updated_at FROM studio_doc WHERE id = ? AND deleted_at IS NULL;
+
+insert:
+INSERT INTO studio_doc(id, kind, title, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?);
+
+updateData:
+UPDATE studio_doc SET data = ?, updated_at = ? WHERE id = ?;
+
+rename:
+UPDATE studio_doc SET title = ?, updated_at = ? WHERE id = ?;
+
+softDelete:
+UPDATE studio_doc SET deleted_at = ?, updated_at = ? WHERE id = ?;

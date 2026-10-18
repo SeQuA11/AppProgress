@@ -48,16 +48,7 @@ enum class Section(
         ),
     ),
 
-    Studio(
-        "Студия", Icons.Filled.Build,
-        summary = "Таблицы, графики и диаграммы в одном месте.",
-        planned = listOf(
-            "Таблицы с типами колонок и формулами",
-            "Графики, которые обновляются вместе с таблицей",
-            "Редактор диаграмм: фигуры, стрелки, шаблоны",
-            "Экспорт в PNG, SVG и PDF",
-        ),
-    ),
+    Studio("Студия", Icons.Filled.Build, content = { com.appprogress.ui.studio.StudioScreen(it) }),
 
     Mail(
         "Почта", Icons.Filled.Email,
