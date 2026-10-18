@@ -1,2 +1,7 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Скрипт gradlew запускается в Linux/Git Bash — только LF; .bat для cmd — CRLF.
+gradlew text eol=lf
+*.bat text eol=crlf
+*.jar binary
