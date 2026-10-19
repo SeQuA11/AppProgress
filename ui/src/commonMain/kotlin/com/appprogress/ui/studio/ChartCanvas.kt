@@ -45,6 +45,7 @@ import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
+import kotlin.math.roundToInt
 
 val ChartPalette = listOf(
     Color(0xFF4F46E5), Color(0xFF0E9F8E), Color(0xFFF59E0B), Color(0xFFE5484D), Color(0xFF3E9BFF), Color(0xFF8B5CF6),
@@ -172,7 +173,7 @@ private fun DrawScope.drawPie(data: ChartData, measurer: TextMeasurer, backgroun
             val mid = (start + sweep / 2) * PI / 180
             val r = d / 2 * 0.65f
             val c = Offset(topLeft.x + d / 2 + (r * cos(mid)).toFloat(), topLeft.y + d / 2 + (r * sin(mid)).toFloat())
-            val label = measurer.measure("${(value / total * 100).toInt()}%", TextStyle(fontSize = 13.sp, color = Color.White))
+            val label = measurer.measure("${(value / total * 100).roundToInt()}%", TextStyle(fontSize = 13.sp, color = Color.White))
             drawText(label, topLeft = c - Offset(label.size.width / 2f, label.size.height / 2f))
         }
         start += sweep

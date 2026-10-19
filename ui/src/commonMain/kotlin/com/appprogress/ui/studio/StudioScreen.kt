@@ -70,7 +70,7 @@ private fun templates(kind: DocKind): List<Template> = when (kind) {
 }
 
 @Composable
-fun StudioScreen(container: AppContainer, initialKind: DocKind = DocKind.Table) {
+fun StudioScreen(container: AppContainer, initialKind: DocKind = DocKind.Table, initialTime: Boolean = false) {
     val repo = remember { StudioRepository(container.db, container.io) }
     val scope = container.scope
     var kind by remember { mutableStateOf(initialKind) }
@@ -79,6 +79,7 @@ fun StudioScreen(container: AppContainer, initialKind: DocKind = DocKind.Table) 
     val docs by remember(kind) { repo.observe(kind) }.collectAsState(initial = null)
     var renaming by remember { mutableStateOf<StudioDoc?>(null) }
     var deleting by remember { mutableStateOf<StudioDoc?>(null) }
+    var showTime by remember { mutableStateOf(initialTime) }
 
     LaunchedEffect(docs) {
         val list = docs ?: return@LaunchedEffect
@@ -98,11 +99,16 @@ fun StudioScreen(container: AppContainer, initialKind: DocKind = DocKind.Table) 
     Row(Modifier.fillMaxSize()) {
         Column(Modifier.width(280.dp).fillMaxHeight().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Студия", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-            KindTabs(kind) { kind = it }
-            NewDocButton(kind) { template ->
+            KindTabs(kind.takeUnless { showTime }) { kind = it; showTime = false }
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                    .background(if (showTime) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.background)
+                    .clickable { showTime = true }.padding(horizontal = 12.dp, vertical = 10.dp),
+            ) { Text("Учёт времени", fontWeight = if (showTime) FontWeight.SemiBold else FontWeight.Normal) }
+            if (!showTime) NewDocButton(kind) { template ->
                 scope.launch { selectedByKind[kind] = template.create(repo) }
             }
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (!showTime) LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 items(docs.orEmpty(), key = { it.id }) { doc ->
                     DocRow(
                         doc = doc,
@@ -117,6 +123,7 @@ fun StudioScreen(container: AppContainer, initialKind: DocKind = DocKind.Table) 
         VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
             when {
+                showTime -> TimeStats(container)
                 selected == null -> EmptyHint(kind)
                 // key: при смене документа редактор создаётся заново со своим состоянием.
                 else -> key(selected.id) {
@@ -148,7 +155,7 @@ fun StudioScreen(container: AppContainer, initialKind: DocKind = DocKind.Table) 
 
 /** Переключатель вкладок в одну строку: три равные части. */
 @Composable
-private fun KindTabs(current: DocKind, onSelect: (DocKind) -> Unit) {
+private fun KindTabs(current: DocKind?, onSelect: (DocKind) -> Unit) {
     val colors = MaterialTheme.colorScheme
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(colors.surfaceVariant).padding(3.dp)) {
         DocKind.entries.forEach { k ->

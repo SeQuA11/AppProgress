@@ -2,6 +2,7 @@ package com.appprogress.kanban
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import com.appprogress.calendar.Repeat
 import com.appprogress.core.Dates
 import com.appprogress.core.newId
 import com.appprogress.core.nowMillis
@@ -98,6 +99,7 @@ class KanbanRepository(
             priority = edit.priority.code,
             due_date = edit.dueDate?.toString(),
             labels = edit.labels.joinToString(","),
+            repeat_rule = edit.repeat.code,
             updated_at = clock(),
             id = id,
         )
@@ -121,7 +123,27 @@ class KanbanRepository(
                 after = others.getOrNull(index)?.position
             }
             q.moveCard(toColumnId, Positions.between(before, after), clock(), cardId)
+            spawnNextIfRepeating(cardId, toColumnId)
         }
+    }
+
+    /**
+     * Повторяющаяся задача попала в «Готово» — создаём следующую в первой колонке со сдвинутым сроком.
+     * Вызывается внутри транзакции moveCard.
+     */
+    private fun spawnNextIfRepeating(cardId: String, toColumnId: String) {
+        val card = q.selectCardById(cardId, ::toCard).executeAsOneOrNull() ?: return
+        if (card.repeat == Repeat.None) return
+        val columns = q.selectColumns(card.boardId) { id, bId, title, _ -> BoardColumn(id, bId, title, emptyList()) }.executeAsList()
+        val target = columns.firstOrNull { it.id == toColumnId } ?: return
+        if (!target.isDone()) return
+        val first = columns.firstOrNull { !it.isDone() } ?: return
+        val now = clock()
+        val id = newId()
+        val last = q.selectCardsInColumn(first.id, ::toCard).executeAsList().lastOrNull()?.position
+        q.insertCard(id, card.boardId, first.id, card.title, Positions.between(last, null), now, now)
+        val due = nextDue(card.dueDate ?: Dates.today(), card.repeat)
+        q.updateCard(card.title, card.description, card.priority.code, due.toString(), card.labels.joinToString(","), card.repeat.code, now, id)
     }
 
     suspend fun deleteCard(id: String) = withContext(io) {
@@ -131,8 +153,8 @@ class KanbanRepository(
 
     private fun toCard(
         id: String, boardId: String, columnId: String, title: String, description: String,
-        priority: Long, dueDate: String?, labels: String, position: Double,
-    ) = Card(id, boardId, columnId, title, description, Priority.of(priority), Dates.parseIso(dueDate), parseLabels(labels), position)
+        priority: Long, dueDate: String?, labels: String, position: Double, repeat: String,
+    ) = Card(id, boardId, columnId, title, description, Priority.of(priority), Dates.parseIso(dueDate), parseLabels(labels), position, Repeat.of(repeat))
 }
 
 /** Все карточки всех досок с указанием доски и колонки. */

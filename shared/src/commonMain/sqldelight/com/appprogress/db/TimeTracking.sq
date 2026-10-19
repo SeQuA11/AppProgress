@@ -1,0 +1,17 @@
+-- Учёт времени: завершённые отрезки фокуса (Pomodoro). card_id — задача, над которой работали (может быть пусто).
+CREATE TABLE IF NOT EXISTS time_entry (
+    id TEXT NOT NULL PRIMARY KEY,
+    card_id TEXT,
+    title TEXT NOT NULL,
+    started_at INTEGER NOT NULL,
+    ended_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS time_entry_started ON time_entry(started_at);
+
+insert:
+INSERT INTO time_entry(id, card_id, title, started_at, ended_at) VALUES (?, ?, ?, ?, ?);
+
+selectBetween:
+SELECT id, card_id, title, started_at, ended_at FROM time_entry
+WHERE started_at >= ? AND started_at < ? ORDER BY started_at;

@@ -311,8 +311,7 @@ fun NoteEditor(
         is EditorDialog.ToTask -> ToTaskDialog(
             container = container,
             initialTitle = d.title.ifBlank { title },
-            noteId = note.id,
-            noteTitle = title.ifBlank { note.displayTitle },
+            description = "Из заметки «${title.ifBlank { note.displayTitle }}»\napp://note/${note.id}",
             onCreated = { cardId, taskTitle ->
                 dialog = null
                 val link = NoteMarkup.appLink(LinkKind.Card, cardId, taskTitle)

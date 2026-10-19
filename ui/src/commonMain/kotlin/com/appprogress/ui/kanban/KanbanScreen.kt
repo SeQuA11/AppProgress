@@ -120,7 +120,12 @@ fun KanbanScreen(container: AppContainer) {
         when {
             boards == null -> Unit
             boards!!.isEmpty() -> EmptyBoards { dialog = KanbanDialog.NewBoard }
-            selected != null -> BoardView(repo, scope, selected.id, openCardId, onOpened = { openCardId = null }, onDialog = { dialog = it })
+            selected != null -> BoardView(
+                repo, scope, selected.id, openCardId,
+                onOpened = { openCardId = null },
+                onDialog = { dialog = it },
+                onFocus = { card -> container.focus.startFocus(card.title, card.id) },
+            )
         }
     }
 
@@ -216,6 +221,7 @@ private fun BoardView(
     openCardId: String?,
     onOpened: () -> Unit,
     onDialog: (KanbanDialog) -> Unit,
+    onFocus: ((Card) -> Unit)? = null,
 ) {
     val columns by remember(boardId) { repo.observeBoard(boardId) }.collectAsState(initial = emptyList())
     val drag = remember(boardId) { DragController() }
@@ -278,6 +284,7 @@ private fun BoardView(
                 }
             },
             onDelete = { editing = null; scope.launch { repo.deleteCard(card.id) } },
+            onFocus = onFocus?.let { f -> { f(card) } },
             onDismiss = { editing = null },
         )
     }

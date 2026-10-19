@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.appprogress.core.Dates
 import com.appprogress.kanban.Card
+import com.appprogress.calendar.Repeat
 import com.appprogress.kanban.Priority
 
 fun Priority.color(): Color = when (this) {
@@ -56,7 +57,7 @@ fun CardView(card: Card, modifier: Modifier = Modifier, elevated: Boolean = fals
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            val hasMeta = card.priority != Priority.None || card.dueDate != null || card.labels.isNotEmpty()
+            val hasMeta = card.priority != Priority.None || card.dueDate != null || card.labels.isNotEmpty() || card.repeat != Repeat.None
             if (hasMeta) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (card.priority != Priority.None) PriorityTag(card.priority)
@@ -68,6 +69,7 @@ fun CardView(card: Card, modifier: Modifier = Modifier, elevated: Boolean = fals
                             content = if (overdue) colors.error else colors.onSurfaceVariant,
                         )
                     }
+                    if (card.repeat != Repeat.None) Tag("↻ ${card.repeat.title.lowercase()}", colors.surfaceVariant, colors.onSurfaceVariant)
                     card.labels.forEach { Tag(it, colors.primaryContainer, colors.onPrimaryContainer) }
                 }
             }

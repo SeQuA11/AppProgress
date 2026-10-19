@@ -27,6 +27,7 @@ import com.appprogress.core.Dates
 import com.appprogress.kanban.BoardColumn
 import com.appprogress.kanban.Card
 import com.appprogress.kanban.CardEdit
+import com.appprogress.calendar.Repeat
 import com.appprogress.kanban.Priority
 import com.appprogress.kanban.parseLabels
 import com.appprogress.ui.common.APP_URI
@@ -44,6 +45,7 @@ fun CardDialog(
     onSave: (CardEdit, String) -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
+    onFocus: (() -> Unit)? = null,
 ) {
     var title by remember { mutableStateOf(card.title) }
     var description by remember { mutableStateOf(card.description) }
@@ -51,6 +53,7 @@ fun CardDialog(
     var dueText by remember { mutableStateOf(card.dueDate?.let(Dates::format).orEmpty()) }
     var labels by remember { mutableStateOf(card.labels.joinToString(", ")) }
     var columnId by remember { mutableStateOf(card.columnId) }
+    var repeat by remember { mutableStateOf(card.repeat) }
 
     val due = Dates.parse(dueText)
     val dueInvalid = dueText.isNotBlank() && due == null
@@ -113,6 +116,17 @@ fun CardDialog(
                     label = { Text("Метки через запятую") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                 )
 
+                Label("Повтор")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Repeat.entries.forEach { r -> FilterChip(selected = r == repeat, onClick = { repeat = r }, label = { Text(r.title) }) }
+                }
+                if (repeat != Repeat.None) {
+                    Text(
+                        "Когда задачу перенесут в «Готово», появится следующая — со сроком на ${repeat.title.lowercase()} позже.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
                 Label("Колонка")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     columns.forEach { col ->
@@ -124,12 +138,13 @@ fun CardDialog(
         confirmButton = {
             TextButton(
                 enabled = canSave,
-                onClick = { onSave(CardEdit(title, description, priority, due, parseLabels(labels)), columnId) },
+                onClick = { onSave(CardEdit(title, description, priority, due, parseLabels(labels), repeat), columnId) },
             ) { Text("Сохранить") }
         },
         dismissButton = {
             Row {
                 TextButton(onClick = onDelete) { Text("Удалить", color = MaterialTheme.colorScheme.error) }
+                if (onFocus != null) TextButton(onClick = { onDismiss(); onFocus() }) { Text("Фокус 25 мин") }
                 TextButton(onClick = onDismiss) { Text("Отмена") }
             }
         },

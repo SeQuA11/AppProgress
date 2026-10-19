@@ -15,6 +15,7 @@ dependencies {
     implementation(project(":ui"))
     implementation(compose.desktop.currentOs)
     implementation(libs.coroutines.swing)
+    implementation(libs.jna.platform)
     testImplementation(kotlin("test"))
 }
 

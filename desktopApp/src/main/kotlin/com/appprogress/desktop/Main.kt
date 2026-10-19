@@ -11,24 +11,46 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Notification
 import androidx.compose.ui.window.Tray
+import androidx.compose.ui.window.TrayState
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberTrayState
 import androidx.compose.ui.window.rememberWindowState
 import com.appprogress.calendar.CalendarRepository
 import com.appprogress.calendar.ReminderService
+import com.appprogress.core.Backups
 import com.appprogress.core.DatabaseFactory
+import com.appprogress.kanban.KanbanRepository
+import com.appprogress.kanban.TaskReminders
 import com.appprogress.ui.App
 import com.appprogress.ui.AppContainer
+import com.appprogress.ui.common.AppCommands
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import java.awt.Dimension
+import javax.swing.SwingUtilities
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 const val APP_VERSION = "0.1.0"
+
+/** Уведомления из любого места приложения; лоток (tray) появляется позже контейнера, поэтому ссылка подставляется потом. */
+private var trayRef: TrayState? = null
 
 fun createContainer(): AppContainer = AppContainer(
     db = DatabaseFactory.open(),
@@ -36,6 +58,7 @@ fun createContainer(): AppContainer = AppContainer(
     scope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
     dataLocation = DatabaseFactory.defaultDataDir().absolutePath,
     version = APP_VERSION,
+    notify = { title, text -> trayRef?.sendNotification(Notification(title, text, Notification.Type.Info)) },
 )
 
 /** Значок в трее: кружок в фирменном цвете с галочкой. Рисуем кодом, чтобы не возиться с файлами иконок. */
@@ -54,18 +77,40 @@ private object TrayIcon : Painter() {
     }
 }
 
+@OptIn(ExperimentalTime::class)
 fun main() {
     val container = createContainer()
+    val commands = AppCommands()
     application {
         var windowVisible by remember { mutableStateOf(true) }
         var hintShown by remember { mutableStateOf(false) }
+        var quickCapture by remember { mutableStateOf(false) }
         val tray = rememberTrayState()
+        trayRef = tray
+        val notify: (String, String) -> Unit = { title, text -> tray.sendNotification(Notification(title, text, Notification.Type.Info)) }
 
-        // Напоминания календаря приходят уведомлениями Windows, пока приложение запущено (в том числе в трее).
         LaunchedEffect(Unit) {
-            ReminderService(CalendarRepository(container.db, container.io), notify = { title, text ->
-                tray.sendNotification(Notification(title, text, Notification.Type.Info))
-            }).start(this)
+            // Напоминания календаря приходят уведомлениями Windows, пока приложение запущено (в том числе в трее).
+            ReminderService(CalendarRepository(container.db, container.io), notify = notify).start(this)
+            // Сроки задач канбана: в 9:00 — задачи на сегодня и сводка просроченных.
+            launch {
+                val reminders = TaskReminders(container.db, KanbanRepository(container.db, container.io), container.io)
+                while (isActive) {
+                    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                    runCatching { reminders.takeDue(now) }.getOrDefault(emptyList()).forEach { notify(it.title, it.text) }
+                    delay(60_000)
+                }
+            }
+            // Ежедневная резервная копия: при запуске и затем проверка раз в 6 часов.
+            launch {
+                val backups = Backups()
+                while (isActive) {
+                    withContext(Dispatchers.IO) { runCatching { backups.dailyIfNeeded() } }
+                    delay(6 * 3600_000L)
+                }
+            }
+            // Ctrl+Alt+N в любой программе — окно быстрой записи.
+            GlobalHotkey.registerCtrlAltN { SwingUtilities.invokeLater { quickCapture = true } }
         }
 
         Tray(
@@ -75,6 +120,8 @@ fun main() {
             onAction = { windowVisible = true },
             menu = {
                 Item("Открыть AppProgress", onClick = { windowVisible = true })
+                Item("Быстрая запись (Ctrl+Alt+N)", onClick = { quickCapture = true })
+                Item("Фокус 25 минут", onClick = { container.focus.startFocus("Фокус") })
                 Separator()
                 Item("Выход", onClick = ::exitApplication)
             },
@@ -86,18 +133,22 @@ fun main() {
                 windowVisible = false
                 if (!hintShown) {
                     hintShown = true
-                    tray.sendNotification(
-                        Notification("AppProgress работает в трее", "Напоминания будут приходить. Выход — через значок в трее."),
-                    )
+                    notify("AppProgress работает в трее", "Напоминания будут приходить. Выход — через значок в трее.")
                 }
             },
             visible = windowVisible,
             title = "AppProgress",
             icon = TrayIcon,
             state = rememberWindowState(width = 1280.dp, height = 800.dp),
+            // Ctrl+K ловим на уровне окна — так палитра откроется, даже если ни одно поле не в фокусе.
+            onPreviewKeyEvent = { e ->
+                if (e.type == KeyEventType.KeyDown && e.isCtrlPressed && e.key == Key.K) { commands.paletteOpen = true; true } else false
+            },
         ) {
             window.minimumSize = Dimension(960, 600)
-            App(container)
+            App(container, commands = commands)
         }
+
+        if (quickCapture) QuickCaptureWindow(container, onClose = { quickCapture = false })
     }
 }

@@ -235,14 +235,18 @@ fun LinkPickerDialog(container: AppContainer, notes: List<NoteSummary>, onPick: 
     LaunchedEffect(Unit) { focus.requestFocus() }
 }
 
-/** «Строка → задача»: выбираем доску и колонку, создаём карточку со ссылкой обратно на заметку. */
+/**
+ * «Сделать задачей»: выбираем доску и колонку, создаём карточку. [description] обычно содержит ссылку
+ * на источник (app://note/ID, app://mail/ID) — по ней из карточки можно вернуться к заметке или письму.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ToTaskDialog(
     container: AppContainer,
     initialTitle: String,
-    noteId: String,
-    noteTitle: String,
+    description: String,
+    labels: List<String> = emptyList(),
+    priority: Priority = Priority.None,
     onCreated: (cardId: String, title: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -283,7 +287,7 @@ fun ToTaskDialog(
                     val id = kanban.addCard(bId, cId, title)
                     kanban.updateCard(
                         id,
-                        CardEdit(title, "Из заметки «$noteTitle»\napp://note/$noteId", Priority.None, due, emptyList()),
+                        CardEdit(title, description, priority, due, labels),
                     )
                     onCreated(id, title)
                 }

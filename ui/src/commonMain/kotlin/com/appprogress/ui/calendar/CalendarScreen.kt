@@ -59,6 +59,11 @@ import com.appprogress.calendar.startOfWeek
 import com.appprogress.core.Dates
 import com.appprogress.ui.AppContainer
 import com.appprogress.ui.common.LocalNavigator
+import com.appprogress.kanban.CardRef
+import com.appprogress.kanban.KanbanRepository
+import com.appprogress.kanban.cardRefs
+import com.appprogress.kanban.isDone
+import androidx.compose.runtime.produceState
 import com.appprogress.ui.common.NavTarget
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.launch
@@ -87,9 +92,19 @@ fun CalendarScreen(container: AppContainer) {
     }
     // Не только события: заметки, привязанные к дате, тоже видны в календаре.
     val notes by remember { container.notes.observeSummaries() }.collectAsState(initial = emptyList())
-    val extras: Map<LocalDate, List<CalendarExtra>> = notes.filter { it.date != null }.groupBy({ it.date!! }) { n ->
-        CalendarExtra(n.displayTitle, NOTE_COLOR, "заметка") { navigator.open(NavTarget.Note(n.id)) }
+    // И незавершённые задачи канбана со сроком — в день срока.
+    val tasks by produceState(emptyList<CardRef>()) {
+        value = KanbanRepository(container.db, container.io).cardRefs().filter { !it.column.isDone() && it.card.dueDate != null }
     }
+    val noteExtras = notes.filter { it.date != null }.map { n ->
+        n.date!! to CalendarExtra(n.displayTitle, NOTE_COLOR, "заметка") { navigator.open(NavTarget.Note(n.id)) }
+    }
+    val taskExtras = tasks.map { r ->
+        r.card.dueDate!! to CalendarExtra("☐ ${r.card.title}", TASK_COLOR, "задача · ${r.board.title} / ${r.column.title}") {
+            navigator.open(NavTarget.Card(r.card.id))
+        }
+    }
+    val extras: Map<LocalDate, List<CalendarExtra>> = (taskExtras + noteExtras).groupBy({ it.first }, { it.second })
 
     Row(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).fillMaxHeight().padding(start = 24.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)) {
@@ -257,6 +272,7 @@ private fun DayCell(
 data class CalendarExtra(val title: String, val color: Color, val label: String, val onClick: () -> Unit)
 
 private val NOTE_COLOR = Color(0xFF0E9F8E)
+private val TASK_COLOR = Color(0xFFF59E0B)
 
 @Composable
 private fun ExtraChip(extra: CalendarExtra) {

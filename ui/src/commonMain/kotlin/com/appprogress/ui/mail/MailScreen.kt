@@ -60,7 +60,10 @@ import com.appprogress.mail.MailRepository
 import com.appprogress.mail.MailRule
 import com.appprogress.mail.RuleField
 import com.appprogress.ui.AppContainer
+import com.appprogress.kanban.Priority
 import com.appprogress.ui.common.ConfirmDialog
+import com.appprogress.ui.notes.ToTaskDialog
+import androidx.compose.material3.OutlinedButton
 import com.appprogress.ui.common.LocalNavigator
 import com.appprogress.ui.common.NavTarget
 import com.appprogress.ui.common.formatDateTime
@@ -99,6 +102,7 @@ fun MailScreen(
     var addingAccount by remember { mutableStateOf(false) }
     var showRules by remember { mutableStateOf(false) }
     var removing by remember { mutableStateOf<MailAccount?>(null) }
+    var taskFrom by remember { mutableStateOf<MailMessage?>(null) }
     val navigator = LocalNavigator.current
     LaunchedEffect(navigator.pending) {
         navigator.consume<NavTarget.Mail>()?.let { priorityFilter = null; accountFilter = null; query = ""; selectedId = it.id }
@@ -173,6 +177,7 @@ fun MailScreen(
                         repo = repo,
                         onPriority = { p -> scope.launch { repo.setPriority(selected.id, p) } },
                         onCreateRule = { rule -> scope.launch { repo.addRule(rule) } },
+                        onToTask = { taskFrom = selected },
                     )
                 } else {
                     Text(
@@ -197,6 +202,17 @@ fun MailScreen(
             onAdd = { scope.launch { repo.addRule(it) } },
             onDelete = { scope.launch { repo.deleteRule(it.id) } },
             onDismiss = { showRules = false },
+        )
+    }
+    taskFrom?.let { m ->
+        ToTaskDialog(
+            container = container,
+            initialTitle = m.subject.ifBlank { "Письмо от ${m.sender}" },
+            description = "Из письма от ${m.sender} <${m.fromAddress}>, тема «${m.subject}»\napp://mail/${m.id}\n\n${m.snippet}",
+            labels = listOf("почта"),
+            priority = if (m.priority == MailPriority.High) Priority.High else Priority.None,
+            onCreated = { _, _ -> taskFrom = null },
+            onDismiss = { taskFrom = null },
         )
     }
     removing?.let { acc ->
@@ -327,6 +343,7 @@ private fun MessageView(
     repo: MailRepository,
     onPriority: (MailPriority) -> Unit,
     onCreateRule: (MailRule) -> Unit,
+    onToTask: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val body by produceState("", message.id) { value = repo.body(message.id) }
@@ -364,6 +381,7 @@ private fun MessageView(
                 }
             }
         }
+        OutlinedButton(onClick = onToTask) { Text("→ В задачу") }
         Spacer(Modifier.height(8.dp))
         SelectionContainer { Text(body.ifBlank { message.snippet }, style = MaterialTheme.typography.bodyLarge) }
     }

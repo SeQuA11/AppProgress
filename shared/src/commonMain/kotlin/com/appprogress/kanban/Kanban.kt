@@ -1,6 +1,12 @@
 package com.appprogress.kanban
 
+import com.appprogress.calendar.Repeat
+import com.appprogress.calendar.lengthOfMonth
+import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.number
+import kotlinx.datetime.plus
+
 
 data class Board(val id: String, val title: String)
 
@@ -16,6 +22,7 @@ data class Card(
     val dueDate: LocalDate? = null,
     val labels: List<String> = emptyList(),
     val position: Double = 0.0,
+    val repeat: Repeat = Repeat.None,
 ) {
     fun isOverdue(today: LocalDate): Boolean = dueDate != null && dueDate < today
 }
@@ -38,6 +45,7 @@ data class CardEdit(
     val priority: Priority,
     val dueDate: LocalDate?,
     val labels: List<String>,
+    val repeat: Repeat = Repeat.None,
 )
 
 object Positions {
@@ -62,3 +70,18 @@ fun BoardColumn.isDone(): Boolean = title.lowercase().let { "готов" in it |
 
 /** Карточка вместе с доской и колонкой, где она лежит. */
 data class CardRef(val board: Board, val column: BoardColumn, val card: Card)
+
+/** Следующий срок повторяющейся задачи: 31-е в коротком месяце — последний день, 29.02 — 28.02. */
+fun nextDue(from: LocalDate, repeat: Repeat): LocalDate = when (repeat) {
+    Repeat.None -> from
+    Repeat.Daily -> from.plus(DatePeriod(days = 1))
+    Repeat.Weekly -> from.plus(DatePeriod(days = 7))
+    Repeat.Monthly -> {
+        val firstNext = LocalDate(from.year, from.month.number, 1).plus(DatePeriod(months = 1))
+        LocalDate(firstNext.year, firstNext.month.number, minOf(from.day, firstNext.lengthOfMonth()))
+    }
+    Repeat.Yearly -> {
+        val firstNext = LocalDate(from.year + 1, from.month.number, 1)
+        LocalDate(firstNext.year, firstNext.month.number, minOf(from.day, firstNext.lengthOfMonth()))
+    }
+}

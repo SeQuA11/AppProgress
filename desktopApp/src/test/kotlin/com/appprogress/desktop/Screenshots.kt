@@ -59,9 +59,10 @@ object Screenshots {
     }
 
     /** Сохраняет текущий кадр сцены в PNG (для тестов, которые сами двигают мышь). */
-    fun save(scene: ImageComposeScene, name: String, nanoTime: Long = System.nanoTime()) {
+    fun save(scene: ImageComposeScene, name: String, nanoTime: Long = System.nanoTime(), minBytes: Int = 10_000) {
         val png = scene.render(nanoTime).encodeToData(EncodedImageFormat.PNG)!!.bytes
         File(outDir, "$name.png").writeBytes(png)
-        assertTrue(png.size > 10_000, "скриншот $name подозрительно пустой")
+        // Пустой кадр одного цвета сжимается в PNG до пары килобайт — так ловим «ничего не нарисовалось».
+        assertTrue(png.size > minBytes, "скриншот $name подозрительно пустой")
     }
 }

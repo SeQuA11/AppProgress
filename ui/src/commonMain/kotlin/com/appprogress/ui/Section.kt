@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -24,6 +25,8 @@ enum class Section(
     val planned: List<String> = emptyList(),
     val content: (@Composable (AppContainer) -> Unit)? = null,
 ) {
+    Today("Сегодня", Icons.Filled.Home, content = { com.appprogress.ui.today.TodayScreen(it) }),
+
     Notes("Заметки", Icons.Filled.Edit, content = { NotesScreen(it) }),
 
     Kanban("Канбан", Icons.AutoMirrored.Filled.List, content = { com.appprogress.ui.kanban.KanbanScreen(it) }),

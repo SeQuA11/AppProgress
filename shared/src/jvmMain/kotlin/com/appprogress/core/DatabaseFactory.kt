@@ -19,8 +19,11 @@ object DatabaseFactory {
         return File(base, "AppProgress").apply { mkdirs() }
     }
 
-    fun open(file: File = File(defaultDataDir(), "appprogress.db")): AppDatabase =
-        AppDatabase(createDriver("jdbc:sqlite:${file.absolutePath}"))
+    fun open(file: File = File(defaultDataDir(), "appprogress.db")): AppDatabase {
+        // Если пользователь выбрал восстановление из копии, подставляем её до открытия базы.
+        Backups(file.absoluteFile.parentFile, file).applyPendingRestore()
+        return AppDatabase(createDriver("jdbc:sqlite:${file.absolutePath}"))
+    }
 
     fun inMemory(): AppDatabase = AppDatabase(createDriver(JdbcSqliteDriver.IN_MEMORY))
 
@@ -45,6 +48,7 @@ object DatabaseFactory {
         Triple("note", "is_daily", "INTEGER NOT NULL DEFAULT 0"),
         Triple("note", "encrypted", "INTEGER NOT NULL DEFAULT 0"),
         Triple("note", "tags", "TEXT NOT NULL DEFAULT ''"),
+        Triple("card", "repeat_rule", "TEXT NOT NULL DEFAULT 'none'"),
     )
 
     /** Индексы по добавленным колонкам: создаём после того, как колонки точно есть. */

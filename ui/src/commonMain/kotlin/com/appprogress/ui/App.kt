@@ -32,7 +32,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import com.appprogress.ui.common.AppCommands
 import com.appprogress.ui.common.ComingSoonScreen
+import com.appprogress.ui.common.CommandPalette
 import com.appprogress.ui.common.LocalNavigator
 import com.appprogress.ui.common.Navigator
 import com.appprogress.ui.settings.SettingsScreen
@@ -45,8 +53,9 @@ private const val THEME_KEY = "ui.theme"
 @Composable
 fun App(
     container: AppContainer,
-    initialSection: Section = Section.Notes,
+    initialSection: Section = Section.Today,
     initialTheme: ThemeMode = ThemeMode.System,
+    commands: AppCommands = remember { AppCommands() },
 ) {
     var section by remember { mutableStateOf(initialSection) }
     var theme by remember { mutableStateOf(initialTheme) }
@@ -65,7 +74,13 @@ fun App(
     AppTheme(theme) {
         CompositionLocalProvider(LocalNavigator provides navigator) {
             // Surface задаёт цвет текста по умолчанию (onBackground) — без него текст в тёмной теме был бы чёрным.
-            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Surface(
+                Modifier.fillMaxSize().onPreviewKeyEvent { e ->
+                    // Ctrl+K — палитра команд (на ПК то же ловит и само окно, даже если фокуса нет).
+                    if (e.type == KeyEventType.KeyDown && e.isCtrlPressed && e.key == Key.K) { commands.paletteOpen = true; true } else false
+                },
+                color = MaterialTheme.colorScheme.background,
+            ) {
                 Row(Modifier.fillMaxSize()) {
                     Sidebar(section, version = container.version, onSelect = { section = it })
                     VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -78,6 +93,7 @@ fun App(
                         }
                     }
                 }
+                if (commands.paletteOpen) CommandPalette(container, navigator, onClose = { commands.paletteOpen = false })
             }
         }
     }
